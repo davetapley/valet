@@ -4,7 +4,6 @@ from ortools.constraint_solver import pywrapcp
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--vets', action='store_true')
-parser.add_argument('--slots', action='store_true')
 parser.add_argument('num_slots', type=int)
 args = parser.parse_args()
 
