@@ -10,7 +10,7 @@ with open('responses.csv') as responses_csv:
     available_shifts = {}
 
     vets = []
-    cons = []
+    splits = []
 
     for row in responses:
         n = responses.line_num - 1
@@ -20,8 +20,8 @@ with open('responses.csv') as responses_csv:
         if 'Yes' in row[3]:
             vets.append(n)
 
-        if 'One' in row[4]:
-            cons.append(n)
+        if 'One' not in row[4]:
+            splits.append(n)
 
         available_shifts[n] = set()
         if 'Early' in row[5]: available_shifts[n].update([0, 1])
@@ -37,7 +37,8 @@ print(f"%num_people people")
 for n in range(num_people):
     email = emails[n]
     avail = available_shifts[n]
-    print(f"{n} is {email} {avail}")
+    split = True if n in splits else False
+    print(f"{n} is {name} {split} {avail}")
 
 solver = pywrapcp.Solver("schedule_shifts")
 
@@ -53,30 +54,27 @@ for shift in range(num_shifts):
 slots_flat = [slots[(shift, slot)] for shift in range(num_shifts) for slot in range(num_slots)]
 
 works_shift = {}
-works_slot = {}
 for shift in range(num_shifts):
     for person in range(num_people):
         works_shift[(shift, person)] = solver.BoolVar(f"works_shift({shift}, {person})")
-        for slot in range(num_slots):
-                works_slot[(shift, slot, person)] = solver.BoolVar(f"works_slot({shift}, {slot}, {person})")
 
 for shift in range(num_shifts):
     for person in range(num_people):
         solver.Add(works_shift[(shift, person)] == solver.Max([slots[(shift, slot)] == person for slot in range(num_slots)]))
-        for slot in range(num_slots):
-            solver.Add(works_slot[(shift, slot, person)] == solver.Max([slots[(shift, slot)] == person]))
 
 for shift in range(num_shifts):
     # Different people in each slot in a shift
     solver.Add(solver.AllDifferent([slots[(shift, slot)] for slot in range(num_slots)]))
 
     # At least one veteran
-    solver.Add(solver.Sum(works_shift[(shift, vet)] for vet in vets ) > 0)
+    if args.vets:
+        solver.Add(solver.Sum(works_shift[(shift, vet)] for vet in vets ) > 0)
 
-    # Consecutive shifts
-    if shift < num_shifts - 1:
-        for con in cons:
-            solver.Add(works_shift[(shift, con)] == works_shift[(shift + 1, con)])
+    # Split shift requests
+    if shift not in [3, 7, 11]: # don't care if end of day shift
+        for split in splits:
+            adj = [shift, shift+1]
+            solver.Add(solver.Sum(works_shift[(n, split)] for n in adj) < 2)
 
     # Availability
     for person in range(num_people):
