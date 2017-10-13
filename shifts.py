@@ -90,7 +90,13 @@ for shift in range(num_shifts):
 
 for person in range(num_people):
     # Max two shifts per person
-    solver.Add(solver.Sum([works_slot[(shift, slot, person)] for shift in range(num_shifts) for slot in range(num_slots)]) < 3)
+    solver.Add(solver.Sum([works_shift[(shift, person)] for shift in range(num_shifts)]) < 3)
+
+#Friends
+for shift in range(num_shifts):
+    solver.Add(works_shift[(shift, 1)] == works_shift[(shift, 2)])
+    solver.Add(works_shift[(shift, 7)] == works_shift[(shift, 5)])
+    solver.Add(works_shift[(shift, 7)] == works_shift[(shift, 6)])
 
 # Create the decision builder.
 db = solver.Phase(slots_flat, solver.CHOOSE_FIRST_UNBOUND, solver.ASSIGN_MIN_VALUE)
