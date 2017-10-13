@@ -35,7 +35,7 @@ num_people = len(emails)
 print(f"%num_people people")
 
 for n in range(num_people):
-    email = emails[n]
+    name = names[n]
     avail = available_shifts[n]
     split = True if n in splits else False
     print(f"{n} is {name} {split} {avail}")
@@ -99,6 +99,8 @@ print("Time:", solver.WallTime(), "ms")
 if collector.SolutionCount() > 0:
     for shift in range(num_shifts):
         for slot in range(num_slots):
-            name = names[collector.Value(0, slots[shift, slot])]
-            print(F"{shift} {slot} {name}")
+            person = collector.Value(0, slots[shift, slot])
+            name = names[person]
+            vet = ' (vet)' if person in vets else ''
+            print(F"{shift} {slot} {person} {name} {vet}")
 
