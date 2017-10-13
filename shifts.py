@@ -1,5 +1,12 @@
 import csv
+import argparse
 from ortools.constraint_solver import pywrapcp
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--vets', action='store_true')
+parser.add_argument('--slots', action='store_true')
+parser.add_argument('num_slots', type=int)
+args = parser.parse_args()
 
 with open('responses.csv') as responses_csv:
     responses = csv.reader(responses_csv)
@@ -43,7 +50,7 @@ for n in range(num_people):
 solver = pywrapcp.Solver("schedule_shifts")
 
 num_shifts = 12
-num_slots = 4
+num_slots = args.num_slots
 
 slots = {}
 
