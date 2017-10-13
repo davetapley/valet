@@ -1,5 +1,6 @@
 import csv
 import argparse
+from collections import defaultdict
 from ortools.constraint_solver import pywrapcp
 
 parser = argparse.ArgumentParser()
@@ -122,11 +123,31 @@ print("Solutions found:", collector.SolutionCount())
 print("Time:", solver.WallTime(), "ms")
 
 if collector.SolutionCount() > 0:
+    people_with_shift = defaultdict(set)
+
+    print('#### SHIFTS ####')
     for shift in range(num_shifts):
+        print(F"Shift {shift}")
         for person in range(num_people):
             slot = collector.Value(0, slots[(person, shift)])
             if slot < shift_size:
+                people_with_shift[person].add((shift))
                 name = names[person]
-                vet = ' (vet)' if person in vets else ''
-                print(F"{shift} {slot} {person} {name} {vet}")
+                vet = ' *' if person in vets else ''
+                print(F"    {person} {name}{vet}")
 
+    print()
+    print('#### PEOPLE WORKING ####')
+    print(F"{len(people_with_shift)} working:")
+    for person, shifts in people_with_shift.items():
+        name = names[person]
+        vet = ' *' if person in vets else ''
+        print(F"{person} {name}{vet} {shifts}")
+
+    print()
+    print('#### PEOPLE NOT WORKING ####')
+    people_without_shift = set(range(num_people-1)) - people_with_shift.keys()
+    print(F"{len(people_without_shift)} not working:")
+    for person in people_without_shift:
+        name = names[person]
+        print(name)
