@@ -2,7 +2,6 @@ import csv
 from ortools.constraint_solver import pywrapcp
 
 with open('responses.csv') as responses_csv:
-
     responses = csv.reader(responses_csv)
 
     emails = {}
@@ -11,15 +10,18 @@ with open('responses.csv') as responses_csv:
     available_shifts = {}
 
     vets = []
+    cons = []
 
     for row in responses:
         n = responses.line_num - 1
         emails[n] = row[1]
         names[n] = row[2]
-        consecutive_shifts[n] = 'One' in row[4]
 
         if 'Yes' in row[3]:
             vets.append(n)
+
+        if 'One' in row[4]:
+            cons.append(n)
 
         available_shifts[n] = set()
         if 'Early' in row[5]: available_shifts[n].update([0, 1])
@@ -34,14 +36,13 @@ print(f"%num_people people")
 
 for n in range(num_people):
     email = emails[n]
-    consecutive_shift = consecutive_shifts[n]
     avail = available_shifts[n]
-    print(f"{n} is {email} {consecutive_shift} {avail}")
+    print(f"{n} is {email} {avail}")
 
 solver = pywrapcp.Solver("schedule_shifts")
 
 num_shifts = 12
-num_slots = 2
+num_slots = 4
 
 slots = {}
 
@@ -72,16 +73,19 @@ for shift in range(num_shifts):
     # At least one veteran
     solver.Add(solver.Sum(works_shift[(shift, vet)] for vet in vets ) > 0)
 
+    # Consecutive shifts
+    if shift < num_shifts - 1:
+        for con in cons:
+            solver.Add(works_shift[(shift, con)] == works_shift[(shift + 1, con)])
+
+    # Availability
+    for person in range(num_people):
+        if shift not in available_shifts[person]:
+            solver.Add(works_shift[(shift, person)] == False)
+
 for person in range(num_people):
     # Max two shifts per person
     solver.Add(solver.Sum([works_slot[(shift, slot, person)] for shift in range(num_shifts) for slot in range(num_slots)]) < 3)
-
-# Consecutive shifts
-#for shift in range(num_shifts):
-#    for slot in range(num_slots):
-#        for person in range(num_people):
-#            if shift < num_shifts - 1:
-#                solver.Add(works_shift[(shift, person)] == works_shift[(shift + 1, person)])
 
 # Create the decision builder.
 db = solver.Phase(slots_flat, solver.CHOOSE_FIRST_UNBOUND, solver.ASSIGN_MIN_VALUE)
@@ -99,3 +103,4 @@ if collector.SolutionCount() > 0:
         for slot in range(num_slots):
             name = names[collector.Value(0, slots[shift, slot])]
             print(F"{shift} {slot} {name}")
+
