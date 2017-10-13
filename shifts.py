@@ -5,6 +5,7 @@ from ortools.constraint_solver import pywrapcp
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--vets', action='store_true')
+parser.add_argument('--splits', action='store_true')
 parser.add_argument('shift_size', type=int)
 args = parser.parse_args()
 shift_size = args.shift_size
@@ -83,33 +84,43 @@ for shift in range(num_shifts):
     # Don't care if multiple people in slot 0
     solver.Add(solver.AllDifferent([people[(slot, shift)] for slot in range(1, num_slots)]))
 
+works_shift = {}
+for person in range(num_people):
+    for shift in range(num_shifts):
+        works_shift[(person, shift)] = solver.BoolVar(F"works_shift({person}, {shift})")
+
+for person in range(num_people):
+    for shift in range(num_shifts):
+        solver.Add(works_shift[(person, shift)] == (slots[(person, shift)] < shift_size))
+
 # Availability
 for person in range(num_people):
  for shift in range(num_shifts):
      if shift not in available_shifts[person]:
-         solver.Add(slots[(person, shift)] > shift_size)
+         solver.Add(works_shift[(person, shift)] == False)
 
 # At least one veteran
 if args.vets:
     for shift in range(num_shifts):
-        solver.Add(solver.Sum(slots[(vet, shift)] < shift_size for vet in vets ) > 0)
+        solver.Add(solver.Sum(works_shift[(vet, shift)] for vet in vets ) > 0)
 
 for person in range(num_people):
     # Max two shifts per person
-    solver.Add(solver.Sum([slots[(person, shift)] < shift_size for shift in range(num_shifts)]) < 3)
+    solver.Add(solver.MemberCt(solver.Sum([works_shift[(person, shift)] for shift in range(num_shifts)]), [0, 2]))
 
 #Friends
 for shift in range(num_shifts):
-    solver.Add((slots[(1, shift)] < shift_size) == (slots[(2, shift)] < shift_size))
-    solver.Add((slots[(7, shift)] < shift_size) == (slots[(6, shift)] < shift_size))
-    solver.Add((slots[(7, shift)] < shift_size) == (slots[(5, shift)] < shift_size))
+    solver.Add(works_shift[(1, shift)] == works_shift[(2, shift)])
+    solver.Add(works_shift[(7, shift)] == works_shift[(6, shift)])
+    solver.Add(works_shift[(7, shift)] == works_shift[(5, shift)])
 
-# Split shift requests
-for split in splits:
-    for shift in range(num_shifts):
-        if shift not in [3, 7, 11]: # don't care if end of day shift
-            adj = [shift, shift+1]
-            solver.Add(solver.Sum(slots[(split, n)] < shift_size for n in [shift, shift+1]) < 2)
+if args.splits:
+    # Split shift requests
+    for split in splits:
+        for shift in range(num_shifts):
+            if shift not in [3, 7, 11]: # don't care if end of day shift
+                adj = [shift, shift+1]
+                solver.Add(solver.Sum(slots[(split, n)] < shift_size for n in [shift, shift+1]) < 2)
 
 # Create the decision builder.
 db = solver.Phase(slots_flat, solver.CHOOSE_FIRST_UNBOUND, solver.ASSIGN_MIN_VALUE)
